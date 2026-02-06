@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matematik Dehası - Yönetim Paneli</title>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --secondary: #f5a623;
+            --success: #7ed321;
+            --danger: #d0021b;
+            --background: #f0f4f8;
+            --text: #333;
+            --card-bg: #ffffff;
+            --border: #e1e8ed;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+
+        /* Auth & Login */
+        .auth-card { text-align: center; padding: 20px 10px; }
+        .auth-card h1 { color: var(--primary); font-size: 2.5rem; margin-bottom: 5px; }
+        
+        .login-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .login-box {
+            background: #f8fbfe;
+            padding: 25px;
+            border-radius: 15px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .login-box h3 { margin-top: 0; color: #555; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+
+        select, input {
+            padding: 12px;
+            border-radius: 10px;
+            border: 2px solid var(--border);
+            font-size: 1rem;
+            outline: none;
+            transition: 0.3s;
+            width: 100%;
+        }
+        input:focus, select:focus { border-color: var(--primary); }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: #555;
+            cursor: pointer;
+            user-select: none;
+        }
+        .checkbox-group input { width: auto; cursor: pointer; }
+
+        .btn {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn:hover { opacity: 0.9; }
+
+        /* Stats Bar */
+        .stats-bar {
+            position: sticky; top: 0; z-index: 100;
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(5px);
+            padding: 12px 20px; border-radius: 15px; margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid var(--border);
+        }
+
+        .progress-container { flex-grow: 1; margin: 0 20px; height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
+        .progress-bar { height: 100%; background: var(--success); width: 0%; transition: 0.4s; }
+
+        /* Questions */
+        .questions-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+        .question-card { background: #fff; border: 1px solid var(--border); padding: 20px; border-radius: 15px; }
+        
+        .dual-display { 
+            display: flex; 
+            justify-content: space-around; 
+            align-items: center; 
+            background: #f8fbfe; 
+            padding: 15px; 
+            border-radius: 12px; 
+            margin-bottom: 15px; 
+            min-height: 120px;
+        }
+        
+        .vertical-math { text-align: right; font-family: monospace; font-size: 1.6rem; line-height: 1.1; position: relative; }
+        .vertical-math .line { border-bottom: 3px solid #333; margin: 4px 0; }
+        
+        .division-box { display: flex; align-items: flex-start; font-family: monospace; font-size: 1.6rem; }
+        .div-dividend { padding: 5px 10px; text-align: right; }
+        .div-divider-result { border-left: 3px solid #333; }
+        .div-divider { padding: 0 10px; border-bottom: 3px solid #333; min-width: 60px; text-align: center; }
+        .div-result { padding: 5px 10px; text-align: center; color: #ccc; }
+
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .option-btn { padding: 12px; border: 2px solid #edf2f7; border-radius: 10px; background: white; cursor: pointer; font-size: 1.1rem; }
+        .option-btn.correct { background: var(--success) !important; color: white; border-color: var(--success); }
+        .option-btn.wrong { background: var(--danger) !important; color: white; border-color: var(--danger); }
+
+        /* Parent Panel */
+        .history-item { background: #fff; padding: 15px; border-radius: 12px; margin-bottom: 10px; border-left: 6px solid var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,0.04); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .history-item:hover { background: #f7fafc; }
+        
+        .settings-card { background: #fff; padding: 20px; border-radius: 15px; border: 1px solid var(--border); margin-bottom: 25px; }
+
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
+        .modal-content { background: white; padding: 30px; border-radius: 20px; max-width: 650px; width: 100%; max-height: 85vh; overflow-y: auto; }
+
+        .badge { padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; color: white; margin-left: 5px; }
+        .badge-plus { background: #3498db; }
+        .badge-minus { background: #e67e22; }
+        .badge-times { background: #9b59b6; }
+        .badge-divide { background: #1abc9c; }
+        .badge-integer { background: #34495e; }
+
+        @media (max-width: 768px) {
+            .login-grid { grid-template-columns: 1fr; }
+            .questions-list { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- GİRİŞ EKRANI -->
+        <section id="view-login" class="view-section active">
+            <div class="auth-card">
+                <h1>Matematik Dehası 🧠</h1>
+                <p>İşlemini seç ve hemen çözmeye başla!</p>
+                
+                <div class="login-grid">
+                    <!-- Öğrenci Girişi -->
+                    <div class="login-box">
+                        <h3>🎒 Öğrenci Girişi</h3>
+                        <input type="text" id="student-name-input" placeholder="İsmini Yaz">
+                        <select id="operation-select">
+                            <option value="multiplication">Çarpma (×)</option>
+                            <option value="addition">Toplama (+)</option>
+                            <option value="subtraction">Çıkarma (-)</option>
+                            <option value="division">Bölme (÷)</option>
+                        </select>
+                        <label class="checkbox-group">
+                            <input type="checkbox" id="integer-mode-check">
+                            Tam Sayılar (Negatif Sayılar Dahil)
+                        </label>
+                        <button class="btn btn-primary" onclick="studentLogin()">Teste Başla</button>
+                    </div>
+
+                    <!-- Veli Girişi -->
+                    <div class="login-box">
+                        <h3>🏠 Veli Paneli</h3>
+                        <input type="password" id="admin-pin-input" placeholder="Yönetici Şifresi">
+                        <button class="btn btn-secondary" onclick="adminLogin()">Raporları Gör</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ÖĞRENCİ EKRANI -->
+        <section id="view-student" class="view-section">
+            <div class="stats-bar">
+                <div id="student-timer" style="font-weight:bold; color:var(--danger);">00:00</div>
+                <div class="progress-container"><div class="progress-bar" id="student-progress"></div></div>
+                <div id="student-page-info">1 / 4</div>
+            </div>
+            <div id="op-title" style="text-align:center; font-weight:bold; color:var(--primary); margin-bottom:10px;"></div>
+            <div class="questions-list" id="questions-list"></div>
+            <div style="display:flex; justify-content: space-between; margin-top:30px;">
+                <button class="btn btn-secondary" id="btn-prev" onclick="changePage(-1)" style="width:auto">Geri</button>
+                <button class="btn btn-success" id="btn-finish" onclick="confirmFinish()" style="display:none; width:auto">Testi Bitir</button>
+                <button class="btn btn-primary" id="btn-next" onclick="changePage(1)" style="width:auto">İleri</button>
+            </div>
+        </section>
+
+        <!-- VELİ EKRANI -->
+        <section id="view-parent" class="view-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>Yönetici Paneli 🛠</h2>
+                <button class="btn btn-danger" onclick="logout()" style="width:auto">Çıkış Yap</button>
+            </div>
+
+            <div class="settings-card">
+                <h4>🔐 Şifre Ayarları</h4>
+                <div style="display:flex; gap:10px;">
+                    <input type="password" id="new-pin-input" placeholder="Yeni Şifre">
+                    <button class="btn btn-primary" onclick="updatePin()" style="width:auto">Şifreyi Güncelle</button>
+                </div>
+            </div>
+
+            <div class="history-list" id="parent-history">
+                <p>Yükleniyor...</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modal Analiz -->
+    <div id="modal-detail" class="modal">
+        <div class="modal-content">
+            <h2 style="color:var(--primary); margin-top:0;">Sınav Detayı</h2>
+            <div id="modal-body"></div>
+            <button class="btn btn-primary" style="width:100%; margin-top:20px;" onclick="closeModal()">Kapat</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'matematik-dehasi-integers';
+
+        let state = {
+            user: null,
+            studentName: "",
+            operation: "multiplication",
+            isIntegerMode: false,
+            quiz: { questions: [], answers: {}, page: 0, seconds: 0, timer: null }
+        };
+
+        const TOTAL_QS = 40;
+        const PAGE_SIZE = 10;
+
+        const OP_MAP = {
+            multiplication: { symbol: '×', label: 'Çarpma', badge: 'badge-times' },
+            addition: { symbol: '+', label: 'Toplama', badge: 'badge-plus' },
+            subtraction: { symbol: '-', label: 'Çıkarma', badge: 'badge-minus' },
+            division: { symbol: '÷', label: 'Bölme', badge: 'badge-divide' }
+        };
+
+        const init = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+        };
+        init();
+        onAuthStateChanged(auth, u => state.user = u);
+
+        window.studentLogin = () => {
+            const name = document.getElementById('student-name-input').value.trim();
+            if(!name) return alert("Lütfen ismini gir.");
+            state.studentName = name;
+            state.operation = document.getElementById('operation-select').value;
+            state.isIntegerMode = document.getElementById('integer-mode-check').checked;
+            
+            let title = OP_MAP[state.operation].label;
+            if (state.isIntegerMode) title += " (Tam Sayılar)";
+            document.getElementById('op-title').innerText = title + " Testi";
+            
+            switchView('view-student');
+            startQuiz();
+        };
+
+        window.adminLogin = async () => {
+            const pinInput = document.getElementById('admin-pin-input').value;
+            const savedPin = await getStoredPin();
+            if(pinInput === savedPin) {
+                switchView('view-parent');
+                loadHistory();
+            } else { alert("Hatalı şifre!"); }
+        };
+
+        window.logout = () => location.reload();
+
+        function switchView(id) {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        async function getStoredPin() {
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'pin');
+            const snap = await getDoc(docRef);
+            if(snap.exists()) return snap.data().value;
+            await setDoc(docRef, { value: "1234" });
+            return "1234";
+        }
+
+        window.updatePin = async () => {
+            const newVal = document.getElementById('new-pin-input').value;
+            if(newVal.length < 4) return alert("Şifre en az 4 haneli olmalı.");
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'pin');
+            await setDoc(docRef, { value: newVal });
+            alert("Şifre başarıyla güncellendi!");
+        };
+
+        // Rastgele sayı üretici (Tam sayı modu için negatifler dahil)
+        function rand(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // --- TEST MOTORU ---
+        function startQuiz() {
+            state.quiz.questions = [];
+            const seen = new Set();
+            const mode = state.isIntegerMode;
+
+            while (state.quiz.questions.length < TOTAL_QS) {
+                let n1, n2, correct;
+                
+                switch(state.operation) {
+                    case 'addition':
+                        n1 = mode ? rand(-50, 50) : rand(10, 99);
+                        n2 = mode ? rand(-50, 50) : rand(10, 99);
+                        correct = n1 + n2;
+                        break;
+                    case 'subtraction':
+                        if (mode) {
+                            n1 = rand(-50, 50);
+                            n2 = rand(-50, 50);
+                        } else {
+                            n1 = rand(10, 99);
+                            n2 = rand(10, n1); // Pozitif sonuç garantisi
+                        }
+                        correct = n1 - n2;
+                        break;
+                    case 'multiplication':
+                        n1 = mode ? rand(-12, 12) : rand(2, 20);
+                        n2 = mode ? rand(-12, 12) : rand(2, 20);
+                        correct = n1 * n2;
+                        break;
+                    case 'division':
+                        n2 = mode ? (Math.random() > 0.5 ? rand(2, 12) : rand(-12, -2)) : rand(2, 15);
+                        correct = mode ? rand(-12, 12) : rand(2, 20);
+                        n1 = n2 * correct;
+                        break;
+                }
+
+                const key = `${n1}${state.operation}${n2}`;
+                if(!seen.has(key)) {
+                    seen.add(key);
+                    const opts = new Set([correct]);
+                    while(opts.size < 4) {
+                        let fake = correct + rand(-10, 10);
+                        if (fake !== correct) opts.add(fake);
+                    }
+                    state.quiz.questions.push({ n1, n2, correct, opts: Array.from(opts).sort(()=>Math.random()-0.5) });
+                }
+            }
+            state.quiz.timer = setInterval(() => {
+                state.quiz.seconds++;
+                const m = String(Math.floor(state.quiz.seconds/60)).padStart(2,'0');
+                const s = String(state.quiz.seconds%60).padStart(2,'0');
+                document.getElementById('student-timer').innerText = `${m}:${s}`;
+            }, 1000);
+            renderPage();
+        }
+
+        window.renderPage = () => {
+            const list = document.getElementById('questions-list');
+            list.innerHTML = "";
+            const start = state.quiz.page * PAGE_SIZE;
+            const currentQs = state.quiz.questions.slice(start, start + PAGE_SIZE);
+
+            currentQs.forEach((q, i) => {
+                const gIdx = start + i;
+                const card = document.createElement('div');
+                card.className = 'question-card';
+                const ans = state.quiz.answers[gIdx];
+
+                // Negatif sayıları parantez içinde gösterme mantığı
+                const n2Display = q.n2 < 0 ? `(${q.n2})` : q.n2;
+                const n1Display = q.n1;
+
+                let verticalHTML = "";
+                if(state.operation === 'division') {
+                    verticalHTML = `
+                        <div class="division-box">
+                            <div class="div-dividend">${q.n1}</div>
+                            <div class="div-divider-result">
+                                <div class="div-divider">${q.n2}</div>
+                                <div class="div-result">?</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    verticalHTML = `
+                        <div class="vertical-math">
+                            <div>${q.n1}</div>
+                            <div>${OP_MAP[state.operation].symbol} ${n2Display}</div>
+                            <div class="line"></div>
+                            <div style="color:#ccc">?</div>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div style="font-weight:bold; color:var(--primary); margin-bottom:10px;">Soru ${gIdx+1}</div>
+                    <div class="dual-display">
+                        <div class="horizontal-math">${n1Display} ${OP_MAP[state.operation].symbol} ${n2Display} = ?</div>
+                        ${verticalHTML}
+                    </div>
+                    <div class="options-grid" id="grid-${gIdx}"></div>
+                `;
+
+                const grid = card.querySelector(`#grid-${gIdx}`);
+                q.opts.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = 'option-btn';
+                    btn.innerText = opt;
+                    if(ans !== undefined) {
+                        btn.disabled = true;
+                        if(opt === q.correct) btn.classList.add('correct');
+                        else if(opt === ans) btn.classList.add('wrong');
+                    } else {
+                        btn.onclick = () => { state.quiz.answers[gIdx] = opt; renderPage(); };
+                    }
+                    grid.appendChild(btn);
+                });
+                list.appendChild(card);
+            });
+            updateNav();
+        };
+
+        window.changePage = (d) => { state.quiz.page += d; renderPage(); window.scrollTo(0,0); };
+
+        function updateNav() {
+            const max = TOTAL_QS / PAGE_SIZE;
+            document.getElementById('btn-prev').disabled = state.quiz.page === 0;
+            document.getElementById('btn-next').style.display = state.quiz.page === max-1 ? 'none' : 'block';
+            document.getElementById('btn-finish').style.display = state.quiz.page === max-1 ? 'block' : 'none';
+            document.getElementById('page-info').innerText = `${state.quiz.page+1} / ${max}`;
+            document.getElementById('student-progress').style.width = (Object.keys(state.quiz.answers).length / TOTAL_QS * 100) + "%";
+        }
+
+        window.confirmFinish = async () => {
+            if(Object.keys(state.quiz.answers).length < TOTAL_QS && !confirm("Boş sorun var. Bitirilsin mi?")) return;
+            clearInterval(state.quiz.timer);
+            let c = 0, w = 0, mistakes = [];
+            state.quiz.questions.forEach((q, i) => {
+                const a = state.quiz.answers[i];
+                if(a === q.correct) c++;
+                else if(a !== undefined) {
+                    w++;
+                    const n2D = q.n2 < 0 ? `(${q.n2})` : q.n2;
+                    mistakes.push({ q: `${q.n1} ${OP_MAP[state.operation].symbol} ${n2D}`, r: q.correct, y: a });
+                }
+            });
+
+            const data = {
+                studentName: state.studentName,
+                operation: state.operation,
+                isIntegerMode: state.isIntegerMode,
+                date: new Date().toISOString(),
+                correct: c, wrong: w, empty: TOTAL_QS-(c+w),
+                time: document.getElementById('student-timer').innerText,
+                mistakes
+            };
+
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'history'), data);
+            alert("Harika! Test kaydedildi.");
+            location.reload();
+        };
+
+        function loadHistory() {
+            const ref = collection(db, 'artifacts', appId, 'public', 'data', 'history');
+            onSnapshot(ref, snap => {
+                const list = document.getElementById('parent-history');
+                list.innerHTML = "";
+                const docs = [];
+                snap.forEach(d => docs.push(d.data()));
+                docs.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+                if(docs.length === 0) return list.innerHTML = "Henüz kayıt yok.";
+
+                docs.forEach(d => {
+                    const op = OP_MAP[d.operation || 'multiplication'];
+                    const item = document.createElement('div');
+                    item.className = 'history-item';
+                    const intBadge = d.isIntegerMode ? '<span class="badge badge-integer">Tam Sayı</span>' : '';
+                    
+                    item.innerHTML = `
+                        <div>
+                            <strong>👤 ${d.studentName}</strong> <span class="badge ${op.badge}">${op.label}</span> ${intBadge}<br>
+                            <small>${new Date(d.date).toLocaleString('tr-TR')}</small>
+                        </div>
+                        <div style="text-align:right">
+                            <span style="color:green">✅ ${d.correct}</span> | <span style="color:red">❌ ${d.wrong}</span><br>
+                            <small>⏱ ${d.time}</small>
+                        </div>
+                    `;
+                    item.onclick = () => {
+                        document.getElementById('modal-body').innerHTML = `
+                            <p><strong>Öğrenci:</strong> ${d.studentName}</p>
+                            <p><strong>İşlem Türü:</strong> ${op.label} ${d.isIntegerMode ? '(Tam Sayılar)' : ''}</p>
+                            <p><strong>Sonuç:</strong> ${d.correct} Doğru, ${d.wrong} Yanlış, ${d.empty} Boş</p>
+                            <hr>
+                            <h4>Hatalı Sorular:</h4>
+                            ${d.mistakes.length === 0 ? "Hata yok!" : d.mistakes.map(m => `
+                                <div style="padding:10px; border-bottom:1px solid #eee;">
+                                    <b>${m.q}</b> → Doğru: ${m.r}, Seçilen: <span style="color:red">${m.y}</span>
+                                </div>
+                            `).join('')}
+                        `;
+                        document.getElementById('modal-detail').style.display='flex';
+                    };
+                    list.appendChild(item);
+                });
+            });
+        }
+
+        window.closeModal = () => document.getElementById('modal-detail').style.display='none';
+    </script>
+</body>
+</html>
