@@ -194,14 +194,14 @@
                             <input type="checkbox" id="integer-mode-check">
                             Tam Sayılar (Negatif Sayılar Dahil)
                         </label>
-                        <button class="btn btn-primary" onclick="studentLogin()">Teste Başla</button>
+                        <button class="btn btn-primary" onclick="window.studentLogin()">Teste Başla</button>
                     </div>
 
                     <!-- Veli Girişi -->
                     <div class="login-box">
                         <h3>🏠 Veli Paneli</h3>
                         <input type="password" id="admin-pin-input" placeholder="Yönetici Şifresi">
-                        <button class="btn btn-secondary" onclick="adminLogin()">Raporları Gör</button>
+                        <button class="btn btn-secondary" onclick="window.adminLogin()">Raporları Gör</button>
                     </div>
                 </div>
             </div>
@@ -258,7 +258,29 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // --- YAPILANDIRMA KONTROLÜ ---
+        // Kendi web sayfanıza koyarken burayı Firebase konsolundan aldığınız config nesnesi ile değiştirin.
+        let firebaseConfig;
+        try {
+            firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        } catch (e) {
+            console.error("Firebase yapılandırması yüklenemedi. Lütfen kodun başındaki config kısmını düzenleyin.");
+            firebaseConfig = {};
+        }
+
+        // Eğer manuel olarak kendi sitene yüklüyorsan, yukarıdaki 'try' bloğunu silip 
+        // direkt aşağıdaki gibi config'i yapıştırabilirsin:
+        /*
+        firebaseConfig = {
+            apiKey: "...",
+            authDomain: "...",
+            projectId: "...",
+            storageBucket: "...",
+            messagingSenderId: "...",
+            appId: "..."
+        };
+        */
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -292,6 +314,7 @@
         init();
         onAuthStateChanged(auth, u => state.user = u);
 
+        // Fonksiyonları global window nesnesine bağlıyoruz ki HTML içindeki onclick'ler çalışabilsin
         window.studentLogin = () => {
             const name = document.getElementById('student-name-input').value.trim();
             if(!name) return alert("Lütfen ismini gir.");
@@ -317,19 +340,36 @@
         };
 
         window.logout = () => location.reload();
+        window.closeModal = () => document.getElementById('modal-detail').style.display='none';
+        window.changePage = (d) => { state.quiz.page += d; renderPage(); window.scrollTo(0,0); };
+        window.confirmFinish = async () => {
+            if(Object.keys(state.quiz.answers).length < TOTAL_QS && !confirm("Boş sorun var. Bitirilsin mi?")) return;
+            clearInterval(state.quiz.timer);
+            let c = 0, w = 0, mistakes = [];
+            state.quiz.questions.forEach((q, i) => {
+                const a = state.quiz.answers[i];
+                if(a === q.correct) c++;
+                else if(a !== undefined) {
+                    w++;
+                    const n2D = q.n2 < 0 ? `(${q.n2})` : q.n2;
+                    mistakes.push({ q: `${q.n1} ${OP_MAP[state.operation].symbol} ${n2D}`, r: q.correct, y: a });
+                }
+            });
 
-        function switchView(id) {
-            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-        }
+            const data = {
+                studentName: state.studentName,
+                operation: state.operation,
+                isIntegerMode: state.isIntegerMode,
+                date: new Date().toISOString(),
+                correct: c, wrong: w, empty: TOTAL_QS-(c+w),
+                time: document.getElementById('student-timer').innerText,
+                mistakes
+            };
 
-        async function getStoredPin() {
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'pin');
-            const snap = await getDoc(docRef);
-            if(snap.exists()) return snap.data().value;
-            await setDoc(docRef, { value: "1234" });
-            return "1234";
-        }
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'history'), data);
+            alert("Harika! Test kaydedildi.");
+            location.reload();
+        };
 
         window.updatePin = async () => {
             const newVal = document.getElementById('new-pin-input').value;
@@ -339,7 +379,25 @@
             alert("Şifre başarıyla güncellendi!");
         };
 
-        // Rastgele sayı üretici (Tam sayı modu için negatifler dahil)
+        function switchView(id) {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        async function getStoredPin() {
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'pin');
+            try {
+                const snap = await getDoc(docRef);
+                if(snap.exists()) return snap.data().value;
+                await setDoc(docRef, { value: "1234" });
+                return "1234";
+            } catch(e) {
+                console.error("Veritabanı bağlantı hatası. Config eksik olabilir.");
+                return "1234";
+            }
+        }
+
+        // Rastgele sayı üretici
         function rand(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
@@ -365,7 +423,7 @@
                             n2 = rand(-50, 50);
                         } else {
                             n1 = rand(10, 99);
-                            n2 = rand(10, n1); // Pozitif sonuç garantisi
+                            n2 = rand(10, n1); 
                         }
                         correct = n1 - n2;
                         break;
@@ -401,7 +459,7 @@
             renderPage();
         }
 
-        window.renderPage = () => {
+        function renderPage() {
             const list = document.getElementById('questions-list');
             list.innerHTML = "";
             const start = state.quiz.page * PAGE_SIZE;
@@ -413,7 +471,6 @@
                 card.className = 'question-card';
                 const ans = state.quiz.answers[gIdx];
 
-                // Negatif sayıları parantez içinde gösterme mantığı
                 const n2Display = q.n2 < 0 ? `(${q.n2})` : q.n2;
                 const n1Display = q.n1;
 
@@ -465,9 +522,7 @@
                 list.appendChild(card);
             });
             updateNav();
-        };
-
-        window.changePage = (d) => { state.quiz.page += d; renderPage(); window.scrollTo(0,0); };
+        }
 
         function updateNav() {
             const max = TOTAL_QS / PAGE_SIZE;
@@ -477,35 +532,6 @@
             document.getElementById('page-info').innerText = `${state.quiz.page+1} / ${max}`;
             document.getElementById('student-progress').style.width = (Object.keys(state.quiz.answers).length / TOTAL_QS * 100) + "%";
         }
-
-        window.confirmFinish = async () => {
-            if(Object.keys(state.quiz.answers).length < TOTAL_QS && !confirm("Boş sorun var. Bitirilsin mi?")) return;
-            clearInterval(state.quiz.timer);
-            let c = 0, w = 0, mistakes = [];
-            state.quiz.questions.forEach((q, i) => {
-                const a = state.quiz.answers[i];
-                if(a === q.correct) c++;
-                else if(a !== undefined) {
-                    w++;
-                    const n2D = q.n2 < 0 ? `(${q.n2})` : q.n2;
-                    mistakes.push({ q: `${q.n1} ${OP_MAP[state.operation].symbol} ${n2D}`, r: q.correct, y: a });
-                }
-            });
-
-            const data = {
-                studentName: state.studentName,
-                operation: state.operation,
-                isIntegerMode: state.isIntegerMode,
-                date: new Date().toISOString(),
-                correct: c, wrong: w, empty: TOTAL_QS-(c+w),
-                time: document.getElementById('student-timer').innerText,
-                mistakes
-            };
-
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'history'), data);
-            alert("Harika! Test kaydedildi.");
-            location.reload();
-        };
 
         function loadHistory() {
             const ref = collection(db, 'artifacts', appId, 'public', 'data', 'history');
@@ -553,8 +579,6 @@
                 });
             });
         }
-
-        window.closeModal = () => document.getElementById('modal-detail').style.display='none';
     </script>
 </body>
 </html>
