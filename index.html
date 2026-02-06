@@ -119,7 +119,7 @@
         .progress-container { flex-grow: 1; margin: 0 20px; height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
         .progress-bar { height: 100%; background: var(--success); width: 0%; transition: 0.4s; }
 
-        /* Questions */
+        /* Questions List */
         .questions-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
         .question-card { background: #fff; border: 1px solid var(--border); padding: 20px; border-radius: 15px; }
         
@@ -168,40 +168,50 @@
             .login-grid { grid-template-columns: 1fr; }
             .questions-list { grid-template-columns: 1fr; }
         }
+
+        #config-error {
+            display: none;
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+            border-bottom: 2px solid #f5c6cb;
+        }
     </style>
 </head>
 <body>
+
+    <div id="config-error">⚠️ Firebase Yapılandırması Eksik! Lütfen HTML kodundaki firebaseConfig bölümünü doldurun.</div>
 
     <div class="container">
         <!-- GİRİŞ EKRANI -->
         <section id="view-login" class="view-section active">
             <div class="auth-card">
                 <h1>Matematik Dehası 🧠</h1>
-                <p>İşlemini seç ve hemen çözmeye başla!</p>
+                <p>Öğrenmeye ve pratik yapmaya başla!</p>
                 
                 <div class="login-grid">
-                    <!-- Öğrenci Girişi -->
                     <div class="login-box">
                         <h3>🎒 Öğrenci Girişi</h3>
                         <input type="text" id="student-name-input" placeholder="İsmini Yaz">
                         <select id="operation-select">
-                            <option value="multiplication">Çarpma (×)</option>
                             <option value="addition">Toplama (+)</option>
                             <option value="subtraction">Çıkarma (-)</option>
+                            <option value="multiplication">Çarpma (×)</option>
                             <option value="division">Bölme (÷)</option>
                         </select>
                         <label class="checkbox-group">
                             <input type="checkbox" id="integer-mode-check">
-                            Tam Sayılar (Negatif Sayılar Dahil)
+                            Tam Sayılar (Negatifler Dahil)
                         </label>
-                        <button class="btn btn-primary" onclick="window.studentLogin()">Teste Başla</button>
+                        <button class="btn btn-primary" onclick="studentLogin()">Teste Başla</button>
                     </div>
 
-                    <!-- Veli Girişi -->
                     <div class="login-box">
                         <h3>🏠 Veli Paneli</h3>
-                        <input type="password" id="admin-pin-input" placeholder="Yönetici Şifresi">
-                        <button class="btn btn-secondary" onclick="window.adminLogin()">Raporları Gör</button>
+                        <input type="password" id="admin-pin-input" placeholder="Veli Şifresi">
+                        <button class="btn btn-secondary" onclick="adminLogin()">Raporları İncele</button>
                     </div>
                 </div>
             </div>
@@ -231,10 +241,10 @@
             </div>
 
             <div class="settings-card">
-                <h4>🔐 Şifre Ayarları</h4>
+                <h4>🔐 Şifre Güncelleme</h4>
                 <div style="display:flex; gap:10px;">
                     <input type="password" id="new-pin-input" placeholder="Yeni Şifre">
-                    <button class="btn btn-primary" onclick="updatePin()" style="width:auto">Şifreyi Güncelle</button>
+                    <button class="btn btn-primary" onclick="updatePin()" style="width:auto">Kaydet</button>
                 </div>
             </div>
 
@@ -244,10 +254,9 @@
         </section>
     </div>
 
-    <!-- Modal Analiz -->
     <div id="modal-detail" class="modal">
         <div class="modal-content">
-            <h2 style="color:var(--primary); margin-top:0;">Sınav Detayı</h2>
+            <h2 id="modal-header-text" style="color:var(--primary); margin-top:0;">Sınav Detayı</h2>
             <div id="modal-body"></div>
             <button class="btn btn-primary" style="width:100%; margin-top:20px;" onclick="closeModal()">Kapat</button>
         </div>
@@ -258,38 +267,46 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- YAPILANDIRMA KONTROLÜ ---
-        // Kendi web sayfanıza koyarken burayı Firebase konsolundan aldığınız config nesnesi ile değiştirin.
-        let firebaseConfig;
-        try {
-            firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        } catch (e) {
-            console.error("Firebase yapılandırması yüklenemedi. Lütfen kodun başındaki config kısmını düzenleyin.");
-            firebaseConfig = {};
+        // ================================================================
+        // BURAYA FIREBASE CONSOLE'DAN ALDIĞINIZ CONFIG BİLGİLERİNİ YAPIŞTIRIN
+        // ================================================================
+        let firebaseConfig = {
+            apiKey: "AIzaSyDrHg2Pvklv9frtiKeztADKkOOkDpl8v-k", // Buraya apiKey gelecek
+             authDomain: "matematikdehasi-e0da6.firebaseapp.com",
+    projectId: "matematikdehasi-e0da6",
+    storageBucket: "matematikdehasi-e0da6.firebasestorage.app",
+    messagingSenderId: "80229605673",
+    appId: "1:80229605673:web:27624b153e4d40e40c1738",
+    measurementId: "G-8JZ6GH38VZ"
+
+        };
+        // ================================================================
+
+        // Canvas ortamında çalışıyorsa otomatik config al
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            try { firebaseConfig = JSON.parse(__firebase_config); } catch (e) {}
         }
 
-        // Eğer manuel olarak kendi sitene yüklüyorsan, yukarıdaki 'try' bloğunu silip 
-        // direkt aşağıdaki gibi config'i yapıştırabilirsin:
-        /*
-        firebaseConfig = {
-            apiKey: "...",
-            authDomain: "...",
-            projectId: "...",
-            storageBucket: "...",
-            messagingSenderId: "...",
-            appId: "..."
-        };
-        */
+        // Hata kontrolü ve Başlatma
+        let app, auth, db;
+        if (firebaseConfig.apiKey) {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            } catch (err) {
+                console.error("Firebase başlatılamadı:", err);
+            }
+        } else {
+            document.getElementById('config-error').style.display = 'block';
+        }
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'matematik-dehasi-integers';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'matematik-dehasi-v3';
 
         let state = {
             user: null,
             studentName: "",
-            operation: "multiplication",
+            operation: "addition",
             isIntegerMode: false,
             quiz: { questions: [], answers: {}, page: 0, seconds: 0, timer: null }
         };
@@ -298,23 +315,26 @@
         const PAGE_SIZE = 10;
 
         const OP_MAP = {
-            multiplication: { symbol: '×', label: 'Çarpma', badge: 'badge-times' },
             addition: { symbol: '+', label: 'Toplama', badge: 'badge-plus' },
             subtraction: { symbol: '-', label: 'Çıkarma', badge: 'badge-minus' },
+            multiplication: { symbol: '×', label: 'Çarpma', badge: 'badge-times' },
             division: { symbol: '÷', label: 'Bölme', badge: 'badge-divide' }
         };
 
-        const init = async () => {
+        const initAuth = async () => {
+            if (!auth) return;
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                 await signInWithCustomToken(auth, __initial_auth_token);
             } else {
                 await signInAnonymously(auth);
             }
         };
-        init();
-        onAuthStateChanged(auth, u => state.user = u);
+        initAuth();
+        if (auth) {
+            onAuthStateChanged(auth, u => state.user = u);
+        }
 
-        // Fonksiyonları global window nesnesine bağlıyoruz ki HTML içindeki onclick'ler çalışabilsin
+        // -- Global Fonksiyonlar --
         window.studentLogin = () => {
             const name = document.getElementById('student-name-input').value.trim();
             if(!name) return alert("Lütfen ismini gir.");
@@ -324,93 +344,63 @@
             
             let title = OP_MAP[state.operation].label;
             if (state.isIntegerMode) title += " (Tam Sayılar)";
-            document.getElementById('op-title').innerText = title + " Testi";
+            document.getElementById('op-title').innerText = title;
             
             switchView('view-student');
             startQuiz();
         };
 
         window.adminLogin = async () => {
+            if (!db) return alert("Firebase bağlı değil!");
             const pinInput = document.getElementById('admin-pin-input').value;
             const savedPin = await getStoredPin();
             if(pinInput === savedPin) {
                 switchView('view-parent');
                 loadHistory();
-            } else { alert("Hatalı şifre!"); }
+            } else {
+                alert("Hatalı şifre!");
+            }
         };
 
         window.logout = () => location.reload();
-        window.closeModal = () => document.getElementById('modal-detail').style.display='none';
-        window.changePage = (d) => { state.quiz.page += d; renderPage(); window.scrollTo(0,0); };
-        window.confirmFinish = async () => {
-            if(Object.keys(state.quiz.answers).length < TOTAL_QS && !confirm("Boş sorun var. Bitirilsin mi?")) return;
-            clearInterval(state.quiz.timer);
-            let c = 0, w = 0, mistakes = [];
-            state.quiz.questions.forEach((q, i) => {
-                const a = state.quiz.answers[i];
-                if(a === q.correct) c++;
-                else if(a !== undefined) {
-                    w++;
-                    const n2D = q.n2 < 0 ? `(${q.n2})` : q.n2;
-                    mistakes.push({ q: `${q.n1} ${OP_MAP[state.operation].symbol} ${n2D}`, r: q.correct, y: a });
-                }
-            });
-
-            const data = {
-                studentName: state.studentName,
-                operation: state.operation,
-                isIntegerMode: state.isIntegerMode,
-                date: new Date().toISOString(),
-                correct: c, wrong: w, empty: TOTAL_QS-(c+w),
-                time: document.getElementById('student-timer').innerText,
-                mistakes
-            };
-
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'history'), data);
-            alert("Harika! Test kaydedildi.");
-            location.reload();
-        };
+        window.closeModal = () => document.getElementById('modal-detail').style.display = 'none';
+        window.changePage = (d) => { state.quiz.page += d; renderQuiz(); window.scrollTo(0,0); };
 
         window.updatePin = async () => {
             const newVal = document.getElementById('new-pin-input').value;
             if(newVal.length < 4) return alert("Şifre en az 4 haneli olmalı.");
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'pin');
-            await setDoc(docRef, { value: newVal });
-            alert("Şifre başarıyla güncellendi!");
+            if (!db) return;
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin');
+            await setDoc(docRef, { pin: newVal });
+            alert("Şifre güncellendi!");
         };
+
+        async function getStoredPin() {
+            if (!db) return "1234";
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin');
+            try {
+                const snap = await getDoc(docRef);
+                if(snap.exists()) return snap.data().pin;
+                await setDoc(docRef, { pin: "1234" });
+                return "1234";
+            } catch(e) {
+                return "1234";
+            }
+        }
 
         function switchView(id) {
             document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
             document.getElementById(id).classList.add('active');
         }
 
-        async function getStoredPin() {
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'pin');
-            try {
-                const snap = await getDoc(docRef);
-                if(snap.exists()) return snap.data().value;
-                await setDoc(docRef, { value: "1234" });
-                return "1234";
-            } catch(e) {
-                console.error("Veritabanı bağlantı hatası. Config eksik olabilir.");
-                return "1234";
-            }
-        }
-
-        // Rastgele sayı üretici
-        function rand(min, max) {
-            return Math.floor(Math.random() * (max - min + 1)) + min;
-        }
-
-        // --- TEST MOTORU ---
         function startQuiz() {
             state.quiz.questions = [];
             const seen = new Set();
             const mode = state.isIntegerMode;
+            const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
             while (state.quiz.questions.length < TOTAL_QS) {
                 let n1, n2, correct;
-                
                 switch(state.operation) {
                     case 'addition':
                         n1 = mode ? rand(-50, 50) : rand(10, 99);
@@ -418,13 +408,8 @@
                         correct = n1 + n2;
                         break;
                     case 'subtraction':
-                        if (mode) {
-                            n1 = rand(-50, 50);
-                            n2 = rand(-50, 50);
-                        } else {
-                            n1 = rand(10, 99);
-                            n2 = rand(10, n1); 
-                        }
+                        n1 = mode ? rand(-50, 50) : rand(10, 99);
+                        n2 = mode ? rand(-50, 50) : rand(10, n1);
                         correct = n1 - n2;
                         break;
                     case 'multiplication':
@@ -445,7 +430,7 @@
                     const opts = new Set([correct]);
                     while(opts.size < 4) {
                         let fake = correct + rand(-10, 10);
-                        if (fake !== correct) opts.add(fake);
+                        if(fake !== correct) opts.add(fake);
                     }
                     state.quiz.questions.push({ n1, n2, correct, opts: Array.from(opts).sort(()=>Math.random()-0.5) });
                 }
@@ -454,12 +439,13 @@
                 state.quiz.seconds++;
                 const m = String(Math.floor(state.quiz.seconds/60)).padStart(2,'0');
                 const s = String(state.quiz.seconds%60).padStart(2,'0');
-                document.getElementById('student-timer').innerText = `${m}:${s}`;
+                const timerEl = document.getElementById('student-timer');
+                if (timerEl) timerEl.innerText = `${m}:${s}`;
             }, 1000);
-            renderPage();
+            renderQuiz();
         }
 
-        function renderPage() {
+        function renderQuiz() {
             const list = document.getElementById('questions-list');
             list.innerHTML = "";
             const start = state.quiz.page * PAGE_SIZE;
@@ -470,13 +456,11 @@
                 const card = document.createElement('div');
                 card.className = 'question-card';
                 const ans = state.quiz.answers[gIdx];
+                const n2Disp = q.n2 < 0 ? `(${q.n2})` : q.n2;
 
-                const n2Display = q.n2 < 0 ? `(${q.n2})` : q.n2;
-                const n1Display = q.n1;
-
-                let verticalHTML = "";
+                let visual = "";
                 if(state.operation === 'division') {
-                    verticalHTML = `
+                    visual = `
                         <div class="division-box">
                             <div class="div-dividend">${q.n1}</div>
                             <div class="div-divider-result">
@@ -486,10 +470,10 @@
                         </div>
                     `;
                 } else {
-                    verticalHTML = `
+                    visual = `
                         <div class="vertical-math">
                             <div>${q.n1}</div>
-                            <div>${OP_MAP[state.operation].symbol} ${n2Display}</div>
+                            <div>${OP_MAP[state.operation].symbol} ${n2Disp}</div>
                             <div class="line"></div>
                             <div style="color:#ccc">?</div>
                         </div>
@@ -499,41 +483,82 @@
                 card.innerHTML = `
                     <div style="font-weight:bold; color:var(--primary); margin-bottom:10px;">Soru ${gIdx+1}</div>
                     <div class="dual-display">
-                        <div class="horizontal-math">${n1Display} ${OP_MAP[state.operation].symbol} ${n2Display} = ?</div>
-                        ${verticalHTML}
+                        <div style="font-size:1.3rem; font-weight:bold;">${q.n1} ${OP_MAP[state.operation].symbol} ${n2Disp} = ?</div>
+                        ${visual}
                     </div>
                     <div class="options-grid" id="grid-${gIdx}"></div>
                 `;
 
                 const grid = card.querySelector(`#grid-${gIdx}`);
-                q.opts.forEach(opt => {
+                q.opts.forEach(o => {
                     const btn = document.createElement('button');
                     btn.className = 'option-btn';
-                    btn.innerText = opt;
+                    btn.innerText = o;
                     if(ans !== undefined) {
                         btn.disabled = true;
-                        if(opt === q.correct) btn.classList.add('correct');
-                        else if(opt === ans) btn.classList.add('wrong');
+                        if(o === q.correct) btn.classList.add('correct');
+                        else if(o === ans) btn.classList.add('wrong');
                     } else {
-                        btn.onclick = () => { state.quiz.answers[gIdx] = opt; renderPage(); };
+                        btn.onclick = () => { state.quiz.answers[gIdx] = o; renderQuiz(); };
                     }
                     grid.appendChild(btn);
                 });
                 list.appendChild(card);
             });
-            updateNav();
+            updateQuizUI();
         }
 
-        function updateNav() {
+        function updateQuizUI() {
             const max = TOTAL_QS / PAGE_SIZE;
-            document.getElementById('btn-prev').disabled = state.quiz.page === 0;
-            document.getElementById('btn-next').style.display = state.quiz.page === max-1 ? 'none' : 'block';
-            document.getElementById('btn-finish').style.display = state.quiz.page === max-1 ? 'block' : 'none';
-            document.getElementById('page-info').innerText = `${state.quiz.page+1} / ${max}`;
-            document.getElementById('student-progress').style.width = (Object.keys(state.quiz.answers).length / TOTAL_QS * 100) + "%";
+            const prev = document.getElementById('btn-prev');
+            const next = document.getElementById('btn-next');
+            const finish = document.getElementById('btn-finish');
+            const info = document.getElementById('student-page-info');
+            const prog = document.getElementById('student-progress');
+
+            if (prev) prev.disabled = state.quiz.page === 0;
+            if (next) next.style.display = state.quiz.page === max - 1 ? 'none' : 'block';
+            if (finish) finish.style.display = state.quiz.page === max - 1 ? 'block' : 'none';
+            if (info) info.innerText = `${state.quiz.page + 1} / ${max}`;
+            const count = Object.keys(state.quiz.answers).length;
+            if (prog) prog.style.width = (count / TOTAL_QS * 100) + "%";
         }
+
+        window.confirmFinish = async () => {
+            if(Object.keys(state.quiz.answers).length < TOTAL_QS && !confirm("Boş sorularınız var. Bitirilsin mi?")) return;
+            clearInterval(state.quiz.timer);
+            let c = 0, w = 0, mistakes = [];
+            state.quiz.questions.forEach((q, i) => {
+                const a = state.quiz.answers[i];
+                if(a === q.correct) c++;
+                else if(a !== undefined) {
+                    w++;
+                    const n2D = q.n2 < 0 ? `(${q.n2})` : q.n2;
+                    mistakes.push({ q: `${q.n1} ${OP_MAP[state.operation].symbol} ${n2D}`, r: q.correct, y: a });
+                }
+            });
+
+            const result = {
+                studentName: state.studentName,
+                operation: state.operation,
+                isIntegerMode: state.isIntegerMode,
+                date: new Date().toISOString(),
+                correct: c, wrong: w, empty: TOTAL_QS - (c+w),
+                timeTaken: document.getElementById('student-timer').innerText,
+                mistakes
+            };
+
+            if(db) {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'history'), result);
+                alert("Test tamamlandı ve kaydedildi!");
+                location.reload();
+            } else {
+                alert("Veritabanı bağlantısı yok, sonuç kaydedilemedi.");
+            }
+        };
 
         function loadHistory() {
+            if(!db) return;
             const ref = collection(db, 'artifacts', appId, 'public', 'data', 'history');
             onSnapshot(ref, snap => {
                 const list = document.getElementById('parent-history');
@@ -542,14 +567,13 @@
                 snap.forEach(d => docs.push(d.data()));
                 docs.sort((a,b) => new Date(b.date) - new Date(a.date));
 
-                if(docs.length === 0) return list.innerHTML = "Henüz kayıt yok.";
+                if(docs.length === 0) return list.innerHTML = "Henüz rapor bulunmuyor.";
 
                 docs.forEach(d => {
-                    const op = OP_MAP[d.operation || 'multiplication'];
+                    const op = OP_MAP[d.operation];
                     const item = document.createElement('div');
                     item.className = 'history-item';
                     const intBadge = d.isIntegerMode ? '<span class="badge badge-integer">Tam Sayı</span>' : '';
-                    
                     item.innerHTML = `
                         <div>
                             <strong>👤 ${d.studentName}</strong> <span class="badge ${op.badge}">${op.label}</span> ${intBadge}<br>
@@ -557,13 +581,12 @@
                         </div>
                         <div style="text-align:right">
                             <span style="color:green">✅ ${d.correct}</span> | <span style="color:red">❌ ${d.wrong}</span><br>
-                            <small>⏱ ${d.time}</small>
+                            <small>⏱ ${d.timeTaken}</small>
                         </div>
                     `;
                     item.onclick = () => {
                         document.getElementById('modal-body').innerHTML = `
                             <p><strong>Öğrenci:</strong> ${d.studentName}</p>
-                            <p><strong>İşlem Türü:</strong> ${op.label} ${d.isIntegerMode ? '(Tam Sayılar)' : ''}</p>
                             <p><strong>Sonuç:</strong> ${d.correct} Doğru, ${d.wrong} Yanlış, ${d.empty} Boş</p>
                             <hr>
                             <h4>Hatalı Sorular:</h4>
@@ -573,7 +596,7 @@
                                 </div>
                             `).join('')}
                         `;
-                        document.getElementById('modal-detail').style.display='flex';
+                        document.getElementById('modal-detail').style.display = 'flex';
                     };
                     list.appendChild(item);
                 });
