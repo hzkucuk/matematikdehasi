@@ -244,7 +244,7 @@
                 <h4>🔐 Şifre Güncelleme</h4>
                 <div style="display:flex; gap:10px;">
                     <input type="password" id="new-pin-input" placeholder="Yeni Şifre">
-                    <button class="btn btn-primary" onclick="updatePin()" style="width:auto">Kaydet</button>
+                    <button class="btn btn-primary" id="save-pin-btn" onclick="updatePin()" style="width:auto">Kaydet</button>
                 </div>
             </div>
 
@@ -268,39 +268,25 @@
         import { getFirestore, doc, getDoc, setDoc, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ================================================================
-        // BURAYA FIREBASE CONSOLE'DAN ALDIĞINIZ CONFIG BİLGİLERİNİ YAPIŞTIRIN
+        // Firebase Yapılandırması
         // ================================================================
-    let firebaseConfig = {
-            apiKey: "AIzaSyDrHg2Pvklv9frtiKeztADKkOOkDpl8v-k", // Buraya apiKey gelecek
-             authDomain: "matematikdehasi-e0da6.firebaseapp.com",
-    projectId: "matematikdehasi-e0da6",
-    storageBucket: "matematikdehasi-e0da6.firebasestorage.app",
-    messagingSenderId: "80229605673",
-    appId: "1:80229605673:web:27624b153e4d40e40c1738",
-    measurementId: "G-8JZ6GH38VZ"
-
+        let firebaseConfig = {
+            apiKey: "AIzaSyDrHg2Pvklv9frtiKeztADKkOOkDpl8v-k",
+            authDomain: "matematikdehasi-e0da6.firebaseapp.com",
+            projectId: "matematikdehasi-e0da6",
+            storageBucket: "matematikdehasi-e0da6.firebasestorage.app",
+            messagingSenderId: "80229605673",
+            appId: "1:80229605673:web:27624b153e4d40e40c1738",
+            measurementId: "G-8JZ6GH38VZ"
         };
-        // ================================================================
 
-        // Canvas ortamında çalışıyorsa otomatik config al
         if (typeof __firebase_config !== 'undefined' && __firebase_config) {
             try { firebaseConfig = JSON.parse(__firebase_config); } catch (e) {}
         }
 
-        // Hata kontrolü ve Başlatma
-        let app, auth, db;
-        if (firebaseConfig.apiKey) {
-            try {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-            } catch (err) {
-                console.error("Firebase başlatılamadı:", err);
-            }
-        } else {
-            document.getElementById('config-error').style.display = 'block';
-        }
-
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'matematik-dehasi-v3';
 
         let state = {
@@ -331,7 +317,9 @@
         };
         initAuth();
         if (auth) {
-            onAuthStateChanged(auth, u => state.user = u);
+            onAuthStateChanged(auth, u => {
+                state.user = u;
+            });
         }
 
         // -- Global Fonksiyonlar --
@@ -369,10 +357,28 @@
         window.updatePin = async () => {
             const newVal = document.getElementById('new-pin-input').value;
             if(newVal.length < 4) return alert("Şifre en az 4 haneli olmalı.");
-            if (!db) return;
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin');
-            await setDoc(docRef, { pin: newVal });
-            alert("Şifre güncellendi!");
+            
+            if (!auth.currentUser) {
+                alert("Oturum açılmadı, lütfen bekleyin veya sayfayı yenileyin.");
+                return;
+            }
+
+            const saveBtn = document.getElementById('save-pin-btn');
+            saveBtn.disabled = true;
+            saveBtn.innerText = "Kaydediliyor...";
+
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin');
+                await setDoc(docRef, { pin: newVal }, { merge: true });
+                alert("Şifre başarıyla güncellendi!");
+                document.getElementById('new-pin-input').value = "";
+            } catch (err) {
+                console.error("Şifre güncellenirken hata oluştu:", err);
+                alert("Şifre güncellenemedi. Hata: " + err.message);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerText = "Kaydet";
+            }
         };
 
         async function getStoredPin() {
@@ -380,10 +386,12 @@
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin');
             try {
                 const snap = await getDoc(docRef);
-                if(snap.exists()) return snap.data().pin;
-                await setDoc(docRef, { pin: "1234" });
+                if(snap.exists() && snap.data().pin) return snap.data().pin;
+                // Eğer döküman yoksa varsayılanı oluştur
+                await setDoc(docRef, { pin: "1234" }, { merge: true });
                 return "1234";
             } catch(e) {
+                console.warn("Veritabanından şifre alınamadı, varsayılan (1234) kullanılıyor.");
                 return "1234";
             }
         }
@@ -548,17 +556,17 @@
                 mistakes
             };
 
-            if(db) {
+            if(db && state.user) {
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'history'), result);
                 alert("Test tamamlandı ve kaydedildi!");
                 location.reload();
             } else {
-                alert("Veritabanı bağlantısı yok, sonuç kaydedilemedi.");
+                alert("Veritabanı bağlantısı yok veya oturum açılmadı, sonuç kaydedilemedi.");
             }
         };
 
         function loadHistory() {
-            if(!db) return;
+            if(!db || !state.user) return;
             const ref = collection(db, 'artifacts', appId, 'public', 'data', 'history');
             onSnapshot(ref, snap => {
                 const list = document.getElementById('parent-history');
@@ -604,6 +612,4 @@
         }
     </script>
 </body>
-
 </html>
-
