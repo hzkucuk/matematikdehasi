@@ -199,7 +199,10 @@
                 <div class="login-grid">
                     <div class="login-box">
                         <h3>🎒 Öğrenci Girişi</h3>
-                        <input type="text" id="student-name-input" placeholder="İsmini Yaz">
+                        <!-- Hafıza Listesi (Datalist) buraya bağlandı -->
+                        <input type="text" id="student-name-input" list="recent-students-list" placeholder="İsmini Yaz veya Listeden Seç">
+                        <datalist id="recent-students-list"></datalist>
+                        
                         <select id="operation-select">
                             <option value="addition">Toplama (+)</option>
                             <option value="subtraction">Çıkarma (-)</option>
@@ -314,6 +317,15 @@
             mixed_equations: { symbol: '?', label: 'Denklem Çözme', badge: 'badge-mixed' }
         };
 
+        // Hafıza listesini yükle ve datalist'e ekle
+        const updateStudentListUI = () => {
+            const list = JSON.parse(localStorage.getItem('studentHafizasi') || '[]');
+            const datalist = document.getElementById('recent-students-list');
+            if (datalist) {
+                datalist.innerHTML = list.map(name => `<option value="${name}">`).join('');
+            }
+        };
+
         const initAuth = async () => {
             if (!auth) return;
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -326,6 +338,7 @@
         if (auth) {
             onAuthStateChanged(auth, u => {
                 state.user = u;
+                updateStudentListUI();
             });
         }
 
@@ -333,6 +346,16 @@
         window.studentLogin = () => {
             const name = document.getElementById('student-name-input').value.trim();
             if(!name) return alert("Lütfen ismini gir.");
+            
+            // İsim Hafızası Güncelleme (Ayşe girse de Ahmet listede kalacak)
+            let studentList = JSON.parse(localStorage.getItem('studentHafizasi') || '[]');
+            if (!studentList.includes(name)) {
+                studentList.push(name);
+                // Listenin çok büyümemesi için son 10 ismi sakla
+                if (studentList.length > 10) studentList.shift();
+                localStorage.setItem('studentHafizasi', JSON.stringify(studentList));
+            }
+            
             state.studentName = name;
             state.operation = document.getElementById('operation-select').value;
             state.isIntegerMode = document.getElementById('integer-mode-check').checked;
@@ -416,7 +439,6 @@
                 let n1, n2, result;
                 let currentOp = state.operation;
                 
-                // Karışık modda her soru için işlem tipini rastgele seç
                 if (state.operation === 'mixed_equations') {
                     const ops = ['addition', 'subtraction', 'multiplication', 'division'];
                     currentOp = ops[rand(0, 3)];
@@ -450,8 +472,6 @@
                 if(!seen.has(key)) {
                     seen.add(key);
                     
-                    // Denklem yapısı için hangi kısmın bilinmeyen olacağını seç (n1, n2 veya sonuç)
-                    // Karışık modda n1 veya n2 bilinmeyen olsun, normal modda sonuç bilinmeyen kalsın.
                     let unknownType = "result";
                     let correctVal = result;
                     
@@ -502,7 +522,6 @@
 
                 let visual = "";
                 
-                // Denklem veya normal görselleştirme
                 if (state.operation === 'mixed_equations') {
                     const n1Disp = q.unknownType === "n1" ? "?" : (q.n1 < 0 ? `(${q.n1})` : q.n1);
                     const n2Disp = q.unknownType === "n2" ? "?" : (q.n2 < 0 ? `(${q.n2})` : q.n2);
@@ -585,6 +604,17 @@
         window.confirmFinish = async () => {
             if(Object.keys(state.quiz.answers).length < TOTAL_QS && !confirm("Boş sorularınız var. Bitirilsin mi?")) return;
             clearInterval(state.quiz.timer);
+            
+            // Dış IP Adresini Al
+            let userIp = "Bilinmiyor";
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                userIp = data.ip;
+            } catch (ipErr) {
+                console.warn("IP adresi alınamadı:", ipErr);
+            }
+
             let c = 0, w = 0, mistakes = [];
             state.quiz.questions.forEach((q, i) => {
                 const a = state.quiz.answers[i];
@@ -608,7 +638,8 @@
                 date: new Date().toISOString(),
                 correct: c, wrong: w, empty: TOTAL_QS - (c+w),
                 timeTaken: document.getElementById('student-timer').innerText,
-                mistakes
+                mistakes,
+                ipAddress: userIp 
             };
 
             if(db && state.user) {
@@ -643,21 +674,22 @@
                             <small>${new Date(d.date).toLocaleString('tr-TR')}</small>
                         </div>
                         <div style="text-align:right">
-                            <span style="color:green">✅ ${d.correct}</span> | <span style="color:red">❌ ${d.wrong}</span><br>
-                            <small>⏱ ${d.timeTaken}</small>
+                            <span style="color:green; font-weight:bold;">✅ ${d.correct}</span> | <span style="color:red; font-weight:bold;">❌ ${d.wrong}</span><br>
+                            <small style="color: #666;">IP: ${d.ipAddress || "Bilinmiyor"}</small>
                         </div>
                     `;
                     item.onclick = () => {
                         document.getElementById('modal-body').innerHTML = `
                             <p><strong>Öğrenci:</strong> ${d.studentName}</p>
+                            <p><strong>IP Adresi:</strong> ${d.ipAddress || "Bilinmiyor"}</p>
                             <p><strong>Sonuç:</strong> ${d.correct} Doğru, ${d.wrong} Yanlış, ${d.empty} Boş</p>
                             <hr>
                             <h4>Hatalı Sorular:</h4>
-                            ${d.mistakes.length === 0 ? "Hata yok!" : d.mistakes.map(m => `
+                            ${d.mistakes && d.mistakes.length > 0 ? d.mistakes.map(m => `
                                 <div style="padding:10px; border-bottom:1px solid #eee;">
                                     <b>${m.q}</b> → Doğru: ${m.r}, Seçilen: <span style="color:red">${m.y}</span>
                                 </div>
-                            `).join('')}
+                            `).join('') : "Hata yok!"}
                         `;
                         document.getElementById('modal-detail').style.display = 'flex';
                     };
